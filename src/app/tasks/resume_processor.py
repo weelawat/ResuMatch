@@ -1,11 +1,10 @@
 import io
 import base64
-from celery import Celery
-from sqlmodel import Session, select
+
+from sqlmodel import Session
 from sentence_transformers import SentenceTransformer
 from pypdf import PdfReader
 from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
 
 from src.app.celery_app import celery_app
 from src.app.database import engine
