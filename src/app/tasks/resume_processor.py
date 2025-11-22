@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 from sentence_transformers import SentenceTransformer
 from pypdf import PdfReader
 from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 from src.app.celery_app import celery_app
 from src.app.database import engine
@@ -54,12 +55,15 @@ def analyze_resume_task(file_content_b64: str, role_id: int, filename: str):
              score = 0.0
         else:
              score = cosine_similarity([resume_vector], [role.embedding])[0][0]
+             # Ensure score is a standard Python float
+             if hasattr(score, 'item'):
+                 score = score.item()
         
         # 5. Save Result
         candidate = Candidate(
             filename=filename,
             role_id=role_id,
-            match_score=round(score * 100, 2),
+            match_score=round(float(score) * 100, 2),
             resume_text=text,
             resume_vector=resume_vector
         )
