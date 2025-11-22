@@ -1,6 +1,7 @@
-from fastapi import APIRouter, UploadFile, File, BackgroundTasks, Depends
+from fastapi import APIRouter, UploadFile, File, BackgroundTasks, Depends, Form
 from typing import List
-from src.app.tasks.resume_processor import process_resume
+import base64
+from src.app.tasks.resume_processor import analyze_resume_task
 from src.app.database import get_session
 from sqlmodel import Session
 
@@ -8,19 +9,22 @@ router = APIRouter()
 
 @router.post("/analyze")
 async def analyze_resume(
+    role_id: int = Form(...),
     file: UploadFile = File(...),
-    background_tasks: BackgroundTasks = None,
     session: Session = Depends(get_session)
 ):
-    # Placeholder: Read file, save candidate to DB, trigger async task
+    # Read file content
     content = await file.read()
-    # logic to save candidate placeholder
-    # candidate = Candidate(...)
-    # session.add(candidate)
-    # session.commit()
+    
+    # Encode to base64 for JSON serialization in Celery
+    content_b64 = base64.b64encode(content).decode('utf-8')
     
     # Trigger celery task
-    # process_resume.delay(candidate.id, content)
+    task = analyze_resume_task.delay(content_b64, role_id, file.filename)
     
-    return {"filename": file.filename, "status": "processing started"}
-
+    return {
+        "filename": file.filename, 
+        "role_id": role_id,
+        "task_id": task.id,
+        "status": "processing started"
+    }
