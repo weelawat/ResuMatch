@@ -2,10 +2,17 @@ from fastapi import APIRouter, UploadFile, File, Depends, Form, HTTPException
 from typing import List
 import base64
 from sqlmodel import Session, select
+from sentence_transformers import SentenceTransformer
 from src.app.tasks.resume_processor import analyze_resume_task
 from src.app.database import get_session
 from src.app.models.role import RoleProfile
 from src.app.models.candidate import Candidate
+from src.app.models.role_dto import RoleProfileRead, RoleProfileCreate
+from src.app.models.candidate_dto import CandidateRead
+
+# Load model for synchronous embedding generation (or consider moving to async task)
+# Note: For a simple role creation, running this in-process might be acceptable if low volume
+ml_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 router = APIRouter()
 
@@ -42,24 +49,39 @@ async def analyze_resume(
         "status": "processing started"
     }
 
-@router.get("/roles", response_model=List[RoleProfile])
+@router.post("/roles", response_model=RoleProfileRead)
+def create_role(role_in: RoleProfileCreate, session: Session = Depends(get_session)):
+    # Create db model from input
+    role = RoleProfile(**role_in.dict())
+
+    # Generate embedding for the role description + requirements
+    text_to_embed = f"{role.title} {role.description} {role.requirements or ''}"
+    embedding = ml_model.encode(text_to_embed).tolist()
+    
+    role.embedding = embedding
+    session.add(role)
+    session.commit()
+    session.refresh(role)
+    return role
+
+@router.get("/roles", response_model=List[RoleProfileRead])
 def list_roles(session: Session = Depends(get_session)):
     roles = session.exec(select(RoleProfile)).all()
     return roles
 
-@router.get("/roles/{role_id}", response_model=RoleProfile)
+@router.get("/roles/{role_id}", response_model=RoleProfileRead)
 def get_role(role_id: int, session: Session = Depends(get_session)):
     role = session.get(RoleProfile, role_id)
     if not role:
         raise HTTPException(status_code=404, detail="Role not found")
     return role
 
-@router.get("/candidates", response_model=List[Candidate])
+@router.get("/candidates", response_model=List[CandidateRead])
 def list_candidates(session: Session = Depends(get_session)):
     candidates = session.exec(select(Candidate)).all()
     return candidates
 
-@router.get("/candidates/{candidate_id}", response_model=Candidate)
+@router.get("/candidates/{candidate_id}", response_model=CandidateRead)
 def get_candidate(candidate_id: int, session: Session = Depends(get_session)):
     candidate = session.get(Candidate, candidate_id)
     if not candidate:
