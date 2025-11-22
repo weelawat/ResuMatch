@@ -18,15 +18,26 @@ async def analyze_resume(
     # Read file content
     content = await file.read()
     
+    # Create Candidate record first (pending state)
+    candidate = Candidate(
+        filename=file.filename,
+        role_id=role_id,
+        match_score=None # Explicitly None to indicate pending
+    )
+    session.add(candidate)
+    session.commit()
+    session.refresh(candidate)
+    
     # Encode to base64 for JSON serialization in Celery
     content_b64 = base64.b64encode(content).decode('utf-8')
     
-    # Trigger celery task
-    task = analyze_resume_task.delay(content_b64, role_id, file.filename)
+    # Trigger celery task with candidate_id instead of raw params
+    task = analyze_resume_task.delay(content_b64, candidate.id)
     
     return {
         "filename": file.filename, 
         "role_id": role_id,
+        "candidate_id": candidate.id,
         "task_id": task.id,
         "status": "processing started"
     }

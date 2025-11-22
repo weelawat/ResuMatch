@@ -16,12 +16,12 @@ from src.app.models.candidate import Candidate
 ml_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 @celery_app.task
-def analyze_resume_task(file_content_b64: str, role_id: int, filename: str):
+def analyze_resume_task(file_content_b64: str, candidate_id: int):
     # 1. Decode Content
     try:
         file_content = base64.b64decode(file_content_b64)
     except Exception as e:
-        print(f"Error decoding content for {filename}: {e}")
+        print(f"Error decoding content for candidate {candidate_id}: {e}")
         return None
 
     # 2. Extract Text
@@ -31,7 +31,7 @@ def analyze_resume_task(file_content_b64: str, role_id: int, filename: str):
         for page in pdf.pages:
             text += page.extract_text() or ""
     except Exception as e:
-        print(f"Error extracting text from {filename}: {e}")
+        print(f"Error extracting text for candidate {candidate_id}: {e}")
         return None
 
     # 3. Vectorize Resume
@@ -40,6 +40,13 @@ def analyze_resume_task(file_content_b64: str, role_id: int, filename: str):
 
     # 4. Calculate Match (Database Side)
     with Session(engine) as session:
+        # Fetch existing candidate
+        candidate = session.get(Candidate, candidate_id)
+        if not candidate:
+            print(f"Candidate with id {candidate_id} not found")
+            return None
+
+        role_id = candidate.role_id
         role = session.get(RoleProfile, role_id)
         
         if not role:
@@ -58,14 +65,11 @@ def analyze_resume_task(file_content_b64: str, role_id: int, filename: str):
              if hasattr(score, 'item'):
                  score = score.item()
         
-        # 5. Save Result
-        candidate = Candidate(
-            filename=filename,
-            role_id=role_id,
-            match_score=round(float(score) * 100, 2),
-            resume_text=text,
-            resume_vector=resume_vector
-        )
+        # 5. Update Result
+        candidate.match_score = round(float(score) * 100, 2)
+        candidate.resume_text = text
+        candidate.resume_vector = resume_vector
+        
         session.add(candidate)
         session.commit()
         session.refresh(candidate)
