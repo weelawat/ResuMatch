@@ -1,6 +1,6 @@
 # ResuMatch
 
-A resume matching application using FastAPI, Celery, and ML.
+A resume matching application using FastAPI, Celery, and ML/AI.
 
 ## Setup
 
