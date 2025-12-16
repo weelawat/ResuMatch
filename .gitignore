@@ -8,4 +8,4 @@ venv/
 .idea/
 .vscode/
 celerybeat-schedule
-
+tests_local/
