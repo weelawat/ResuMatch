@@ -66,7 +66,6 @@ docker-compose exec web alembic upgrade head
 - `src/app/api`: API endpoints
 - `src/app/models`: Database models and DTOs
 - `src/app/tasks`: Celery tasks for async processing
-- `src/app/ml`: Machine Learning logic
-- `rag_service.py`: RAG service using LangChain for generating AI-powered suggestions with structured outputs
+- `src/app/ml`: Machine Learning logic and RAG service
 - `tests`: Tests
 
