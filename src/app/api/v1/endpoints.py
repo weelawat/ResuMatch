@@ -2,7 +2,6 @@ from fastapi import APIRouter, UploadFile, File, Depends, Form, HTTPException
 from typing import List
 import base64
 from sqlmodel import Session, select
-from sentence_transformers import SentenceTransformer
 from src.app.tasks.resume_processor import analyze_resume_task
 from src.app.database import get_session
 from src.app.models.role import RoleProfile
@@ -11,10 +10,7 @@ from src.app.models.role_dto import RoleProfileRead, RoleProfileCreate
 from src.app.models.candidate_dto import CandidateRead
 from src.app.models.suggestion_dto import SuggestionResponse
 from src.app.ml.rag_service import get_rag_service
-
-# Load model for synchronous embedding generation (or consider moving to async task)
-# Note: For a simple role creation, running this in-process might be acceptable if low volume
-ml_model = SentenceTransformer('all-MiniLM-L6-v2')
+from src.app.ml.engine import ml_model
 
 router = APIRouter()
 
