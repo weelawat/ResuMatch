@@ -2,7 +2,6 @@ import io
 import base64
 
 from sqlmodel import Session
-from sentence_transformers import SentenceTransformer
 from pypdf import PdfReader
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -10,10 +9,7 @@ from src.app.celery_app import celery_app
 from src.app.database import engine
 from src.app.models.role import RoleProfile
 from src.app.models.candidate import Candidate
-
-# Load ML Model ONCE (Global variable) to save RAM
-# Note: In a production Celery setup, this runs when the worker starts
-ml_model = SentenceTransformer('all-MiniLM-L6-v2')
+from src.app.ml.engine import ml_model
 
 @celery_app.task
 def analyze_resume_task(file_content_b64: str, candidate_id: int):
