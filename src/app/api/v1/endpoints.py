@@ -9,6 +9,8 @@ from src.app.models.role import RoleProfile
 from src.app.models.candidate import Candidate
 from src.app.models.role_dto import RoleProfileRead, RoleProfileCreate
 from src.app.models.candidate_dto import CandidateRead
+from src.app.models.suggestion_dto import SuggestionResponse
+from src.app.ml.rag_service import get_rag_service
 
 # Load model for synchronous embedding generation (or consider moving to async task)
 # Note: For a simple role creation, running this in-process might be acceptable if low volume
@@ -87,3 +89,38 @@ def get_candidate(candidate_id: int, session: Session = Depends(get_session)):
     if not candidate:
         raise HTTPException(status_code=404, detail="Candidate not found")
     return candidate
+
+@router.get("/candidates/{candidate_id}/suggestions", response_model=SuggestionResponse)
+def get_suggestions(candidate_id: int, session: Session = Depends(get_session)):
+    """
+    Get AI-powered suggestions comparing the candidate's resume with the job description.
+    Uses RAG (Retrieval-Augmented Generation) to provide actionable feedback.
+    """
+    # Fetch candidate
+    candidate = session.get(Candidate, candidate_id)
+    if not candidate:
+        raise HTTPException(status_code=404, detail="Candidate not found")
+    
+    # Check if resume has been processed
+    if not candidate.resume_text:
+        raise HTTPException(
+            status_code=400, 
+            detail="Resume has not been processed yet. Please wait for analysis to complete."
+        )
+    
+    # Fetch the role/job description
+    role = session.get(RoleProfile, candidate.role_id)
+    if not role:
+        raise HTTPException(status_code=404, detail="Role not found")
+    
+    # Get RAG service and generate suggestions
+    rag_service = get_rag_service()
+    suggestions = rag_service.generate_suggestions(
+        resume_text=candidate.resume_text,
+        job_title=role.title,
+        job_description=role.description,
+        job_requirements=role.requirements,
+        match_score=candidate.match_score
+    )
+    
+    return suggestions
